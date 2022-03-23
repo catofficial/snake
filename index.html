@@ -1,0 +1,1303 @@
+{
+    textFont(createFont("serif"));
+    
+    var sfps; //starting game speed
+    frameRate(sfps);
+    
+    var gameStates = {
+        MENU: "menu",
+        PLAYING: "playing",
+        GAME_OVER: "game over",
+        HOW_TO_PLAY: "how to play"
+    };
+    var gameState = gameStates.MENU;
+    
+    var directions = {
+        NULL: "null",
+        UP: "up",
+        DOWN: "down",
+        LEFT: "left",
+        RIGHT: "right"
+    };
+    var direction = directions.NULL;
+    
+    var Point = function(x, y) {
+        this.x = x;
+        this.y = y;
+        this.toString = function() {
+            return "(" + this.x + ", " + this.y + ")";
+        };
+    };
+    
+    var Queue = function() {
+        this.elements = [];
+        this.push = function(e) {
+            this.elements.push(e);
+        };
+        this.pop = function() {
+            return this.elements.shift();
+        };
+        this.toString = function() {
+            var returnStr = "";
+            for (var i = 0; i < this.elements.length; i++) {
+                returnStr += this.elements[i].toString();
+            }
+            return returnStr;
+        };
+        this.length = function() {
+            return this.elements.length;
+        };
+    };
+    var moveQueue = new Queue();
+    
+    var message1 = "SNAKE";
+    var message2s = ["play like it's Y2K!"];
+    var rand = random(0, message2s.length);
+    var message2 = message2s[Math.floor(random(0, message2s.length))];
+    var lastInput = 0;
+    var inputTime = 0;
+    var frameTime = 0;
+    var lastFrame = 0;
+    var lastStart = 0;
+    var elapsed = 0;
+    
+    var length = 6;
+    var score = 0;
+    var movedSinceLastDirectionChange = true;
+    var d = 4; //eye diameter
+    
+    var skins = {
+        NORMAL: "normal",
+        RAINBOW: "rainbow",
+        WIREFRAME: "wireframe",
+        APPLE: "apple",
+        FLASHING: "flashing",
+        CAMO: "camo",
+        AAAAA: "aaaaa",
+        BEEG: "beeg",
+        RETRO: "retro"
+    };
+    var skin = skins.NORMAL;
+    
+    var themes = {
+        LIGHT: "light",
+        DARK: "dark"
+    };
+    var theme = themes.LIGHT;
+    
+    var lightColor1v = 255;
+    var lightColor1 = color(lightColor1v);
+    var lightColor2v = 245;
+    var lightColor2 = color(lightColor2v);
+    var lightTextColorV = 0;
+    var lightTextColor = color(lightTextColorV);
+    
+    var darkColor1v = 16;
+    var darkColor1 = color(darkColor1v);
+    var darkColor2v = 40;
+    var darkColor2 = color(darkColor2v);
+    var darkTextColorV = 255;
+    var darkTextColor = color(darkTextColorV);
+    
+    var skinCounter = 0;
+    var fpsinc; //FPS increments
+    var timer = 0;
+    var paused = false;
+    var a; //used for translucency effects, see below
+    
+    var sounds = {
+        ON: "on",
+        OFF: "off"
+    };
+    var sound = sounds.OFF;
+    
+    var difficulties = {
+        NULL: "null",
+        EASY: "Easy",
+        MEDIUM: "Medium",
+        HARD: "Hard",
+        EXPERT: "Expert",
+        EXPERTER: "Experter"
+    };
+    var difficulty = difficulties.NULL;
+    
+    var choosingDifficulty = false;
+    var menuButton1 = new Point(width / 2 - 75, 150);
+    var menuButton2 = new Point(width / 2 - 75, 212.5);
+    var gameOverButton1 = new Point(width / 2 - 75, 175);
+    var gameOverButton2 = new Point(width / 2 - 75, 237.5);
+    
+    var headPos = new Point(100, 180);
+    var appPos = new Point(width - 120, 180);
+    var appPosTest = new Point(0, 0);
+    var tailPos = new Queue();
+    tailPos.push(new Point(40, 180));
+    tailPos.push(new Point(50, 180));
+    tailPos.push(new Point(60, 180));
+    tailPos.push(new Point(70, 180));
+    tailPos.push(new Point(80, 180));
+    tailPos.push(new Point(90, 180));
+}
+
+//MORE USEFUL FUNCTIONS
+var endGame = function() { //ends the game, what did you expect?
+    if (gameState === gameStates.PLAYING) {
+        gameState = gameStates.GAME_OVER;
+        if (sound === sounds.ON) {
+            playSound(getSound("retro/boom1"));
+        }
+        message1 = "Game Over";
+    }
+};
+
+var changeApplePos = function() {
+    appPosTest = new Point(Math.floor(random(1, width / 20 - 0.1)) * 20, 
+                           Math.floor(random(1, width / 20 - 0.1)) * 20);
+        
+    for (var i = 0; i < tailPos.length(); i++) {
+        if ((appPosTest.x === tailPos.elements[i].x && appPosTest.y === tailPos.elements[i].y) || (appPosTest.x === headPos.x && appPosTest.y === headPos.y)) {
+            changeApplePos();
+        } else {
+            appPos = appPosTest;
+        }
+    }
+};
+
+var goToMainMenu = function() { //instead of the restart button completely starting the program from scratch, just reset the important variables - notice timer, sound, and all constants are missing.
+    frameRate(2 * sfps);
+    gameState = gameStates.MENU;
+    direction = 0;
+    moveQueue = new Queue();
+    message1 = "SNAKE";
+    message2 = message2s[Math.floor(random(0, message2s.length))];
+    difficulty = 0;
+    score = 0;
+    movedSinceLastDirectionChange = true;
+    choosingDifficulty = false;
+    headPos = new Point(100, 180);
+    appPos = new Point(width - 120, 180);
+    appPosTest = new Point(0, 0);
+    tailPos = new Queue();
+    tailPos.push(new Point(40, 180));
+    tailPos.push(new Point(50, 180));
+    tailPos.push(new Point(60, 180));
+    tailPos.push(new Point(70, 180));
+    tailPos.push(new Point(80, 180));
+    tailPos.push(new Point(90, 180));
+};
+
+var restartGame = function() {
+    direction = directions.NULL;
+    moveQueue = new Queue();
+    message1 = "";
+    length = 3;
+    switch (difficulty) {
+        case difficulties.EASY:
+            sfps = 10;
+            fpsinc = 0;
+            break;
+        case difficulties.MEDIUM:
+            sfps = 10;
+            fpsinc = 0.2;
+            break;
+        case difficulties.HARD:
+            sfps = 15;
+            fpsinc = 0.2;
+            length = 6;
+            break;
+        case difficulties.EXPERT:
+            sfps = 20;
+            fpsinc = 0.4;
+            length = 12;
+            break;
+        case difficulties.EXPERTER:
+            sfps = 35;
+            fpsinc = 0.8;
+            length = 15;
+            break;
+    }
+    frameRate(2 * sfps);
+    score = 0;
+    movedSinceLastDirectionChange = true;
+    headPos = new Point(100, 180);
+    appPos = new Point(width - 120, 180);
+    tailPos = new Queue();
+    switch (difficulty) {
+        //case difficulties.EASY:
+        //case difficulties.MEDIUM:
+        case difficulties.HARD:
+            tailPos.push(new Point(0, 160));
+            tailPos.push(new Point(0, 170));
+            tailPos.push(new Point(0, 180));
+            tailPos.push(new Point(10, 180));
+            tailPos.push(new Point(20, 180));
+            tailPos.push(new Point(30, 180));
+            break;
+        case difficulties.EXPERT:
+        case difficulties.EXPERTER:
+            tailPos.push(new Point(0, 30));
+            tailPos.push(new Point(0, 40));
+            tailPos.push(new Point(0, 50));
+            tailPos.push(new Point(0, 60));
+            tailPos.push(new Point(0, 70));
+            tailPos.push(new Point(0, 80));
+            tailPos.push(new Point(0, 90));
+            tailPos.push(new Point(0, 100));
+            tailPos.push(new Point(0, 110));
+            tailPos.push(new Point(0, 120));
+            tailPos.push(new Point(0, 130));
+            tailPos.push(new Point(0, 140));
+            tailPos.push(new Point(0, 150));
+            tailPos.push(new Point(0, 160));
+            tailPos.push(new Point(0, 170));
+            tailPos.push(new Point(0, 180));
+            tailPos.push(new Point(10, 180));
+            tailPos.push(new Point(20, 180));
+            tailPos.push(new Point(30, 180));
+    }
+    tailPos.push(new Point(40, 180));
+    tailPos.push(new Point(50, 180));
+    tailPos.push(new Point(60, 180));
+    tailPos.push(new Point(70, 180));
+    tailPos.push(new Point(80, 180));
+    tailPos.push(new Point(90, 180));
+    gameState = gameStates.PLAYING;
+};
+
+//HELPER FUNCTIONS
+var tailContainsHead = function() {
+    for (var i = 0; i < tailPos.length(); i++) {
+        if (tailPos.elements[i].x === headPos.x && tailPos.elements[i].y === headPos.y) {
+            return true;
+        }
+    }
+    return false;
+};
+
+var mouseInRect = function(x1, y1, x2, y2) {
+    return (mouseX > x1 && mouseX < x2 && mouseY > y1 && mouseY < y2);
+};
+
+var cycleSkin = function() {
+    switch (skinCounter % 9) {
+        case 0:
+            skin = skins.RAINBOW;
+            break;
+        case 1:
+            skin = skins.WIREFRAME;
+            break;
+        case 2:
+            skin = skins.APPLE;
+            break;
+        case 3:
+            skin = skins.FLASHING;
+            break;
+        case 4:
+            skin = skins.CAMO;
+            break;
+        case 5:
+            skin = skins.AAAAA;
+            break;
+        case 6:
+            skin = skins.BEEG;
+            break;
+        case 7:
+            skin = skins.RETRO;
+            break;
+        case 8:
+            skin = skins.NORMAL;
+            break;
+    }
+    skinCounter++;
+};
+
+var areOpposites = function(a, b) {
+    switch (a)
+    {
+        case directions.UP:
+            switch (b)
+            {
+                case directions.UP:
+                    return false;
+                case directions.DOWN:
+                    return true;
+                case directions.LEFT:
+                    return false;
+                case directions.RIGHT:
+                    return false;
+                case directions.NULL:
+                    return false;
+            }
+        break;
+        case directions.DOWN:
+            switch (b)
+            {
+                case directions.UP:
+                    return true;
+                case directions.DOWN:
+                    return false;
+                case directions.LEFT:
+                    return false;
+                case directions.RIGHT:
+                    return false;
+                case directions.NULL:
+                    return false;
+            }
+        break;
+        case directions.LEFT:
+            switch (b)
+            {
+                case directions.UP:
+                    return false;
+                case directions.DOWN:
+                    return false;
+                case directions.LEFT:
+                    return false;
+                case directions.RIGHT:
+                    return true;
+                case directions.NULL:
+                    return true;
+            }
+        break;
+        case directions.RIGHT:
+            switch (b)
+            {
+                case directions.UP:
+                    return false;
+                case directions.DOWN:
+                    return false;
+                case directions.LEFT:
+                    return true;
+                case directions.RIGHT:
+                    return false;
+                case directions.NULL:
+                    return false;
+            }
+        break;
+        case directions.NULL:
+            switch (b)
+            {
+                case directions.UP:
+                    return false;
+                case directions.DOWN:
+                    return false;
+                case directions.LEFT:
+                    return true;
+                case directions.RIGHT:
+                    return false;
+                case directions.NULL:
+                    return false;
+            }
+        break;
+    }
+};
+
+//THE BIG BOIS
+draw = function() {
+    frameTime = millis() - lastFrame;
+    lastFrame += frameTime;
+    if (!paused) {
+        //TIMER
+        if (gameState !== gameStates.GAME_OVER && skin !== skins.RETRO) {
+            timer++;
+        }
+        if (gameState === gameStates.PLAYING)
+        {
+            elapsed += frameTime;
+        }
+        if (direction === directions.NULL) {
+            elapsed = 0;
+        }
+        
+        //START GAMEPLAY CODE ---------------------------------------------------------------
+        
+        //CHANGE DIRECTION
+        if ((headPos.x % 20) === 0 && (headPos.y % 20) === 0) {
+            if (moveQueue.elements[0]) {
+                var newDirection = moveQueue.pop();
+                if (!areOpposites(newDirection, direction)) {
+                    direction = newDirection;
+                }
+            }
+        }
+        
+        //MOVE HEAD/WALL COLLISION
+        if (gameState === gameStates.PLAYING) {
+            switch (direction) {
+                case directions.UP:
+                    if (headPos.y !== 0) {
+                        headPos.y -= 10;
+                    } else {
+                        endGame();
+                    }
+                    break;
+                case directions.DOWN:
+                    if (headPos.y !== height - 20) {
+                        headPos.y += 10;
+                    } else {
+                        endGame();
+                    }
+                    break;
+                case directions.LEFT:
+                    if (headPos.x !== 0) {
+                        headPos.x -= 10;
+                    } else {
+                        endGame();
+                    }
+                    break;
+                case directions.RIGHT:
+                    if (headPos.x !== width - 20) {
+                        headPos.x += 10;
+                    } else {
+                        endGame();
+                    }
+            }
+            movedSinceLastDirectionChange = true;
+        }
+        
+        //TAIL COLLISION
+        if (tailContainsHead() && direction !== directions.NULL && gameState === gameStates.PLAYING) {
+            switch (direction) {
+                case directions.UP:
+                    headPos.y += 20;
+                    break;
+                case directions.DOWN:
+                    headPos.y -= 20;
+                    break;
+                case directions.LEFT:
+                    headPos.x += 20;
+                    break;
+                case directions.RIGHT:
+                    headPos.x -= 20;
+                    break;
+            }
+            endGame();
+        }
+        
+        //APPLE COLLISION
+        if (headPos.x === appPos.x && headPos.y === appPos.y) {
+            if (sound === sounds.ON) {
+                playSound(getSound("retro/coin"));
+            }
+            length++;
+            score++;
+            frameRate(2 * (sfps + fpsinc * score));
+            changeApplePos();
+        }
+        
+        //PUSH TO TAIL
+        if (gameState === gameStates.PLAYING) {
+            if (!tailContainsHead()) {
+                tailPos.push(new Point(headPos.x, headPos.y));
+            }
+        }
+        
+        //POP FROM TAIL
+        switch (difficulty) {
+            case difficulties.EASY:
+            case difficulties.MEDIUM:
+                while (tailPos.length() > 1 * length) {
+                    tailPos.pop();
+                }
+                break;
+            case difficulties.HARD:
+            case difficulties.EXPERT:
+                while (tailPos.length() > 2 * length) {
+                    tailPos.pop();
+                }
+                break;
+            case difficulties.EXPERTER:
+                while (tailPos.length() > 3 * length) {
+                    tailPos.pop();
+                }
+                break;
+        }
+    }
+    
+    //END GAMEPLAY CODE -----------------------------------------------------------------
+    //START SHAPE DRAWING CODE ----------------------------------------------------------
+    
+    {
+    //BACKGROUND DRAWING
+    noStroke();
+    rectMode(CORNER);
+    switch (theme) {
+        case themes.LIGHT:
+            background(lightColor1);
+            if (skin !== skins.RETRO) {
+                fill(lightColor2);
+                colorMode(HSB);
+                for (var i = 0; i < height / 40; i++) {
+                    for (var j = 0; j < width / 40 + 1; j++) {
+                        if (skin === skins.RAINBOW) {
+                            fill(((i + j) / (width / 40) * 255) % 255, 48, lightColor2v);
+                        }
+                        rect(j * 40, i * 40, 20, 20);
+                        rect(j * 40 - 20, i * 40 + 20, 20, 20);
+                    }
+                }
+                colorMode(RGB);
+            }
+            break;
+        case themes.DARK:
+            background(darkColor1);
+            if (skin !== skins.RETRO) {
+                fill(darkColor2);
+                colorMode(HSB);
+                for (var i = 0; i < height / 40; i++) {
+                    for (var j = 0; j < width / 40 + 1; j++) {
+                        if (skin === skins.RAINBOW) {
+                            fill(((i + j) / (width / 40) * 255) % 255, 48, darkColor2v * 1.5);
+                        }
+                        rect(j * 40, i * 40, 20, 20);
+                        rect(j * 40 - 20, i * 40 + 20, 20, 20);
+                    }
+                }
+                colorMode(RGB);
+            }
+            break;
+    }
+    
+    //APPLE DRAWING
+    switch (skin) {
+        case skins.WIREFRAME:
+            fill(0, 0, 0, 0);
+            stroke(255, 0, 0);
+            strokeWeight(3);
+            ellipse(appPos.x + 10, appPos.y + 10, 20, 20);
+            break;
+        case skins.BEEG:
+            fill(255, 0, 0);
+            ellipse(appPos.x + 10, appPos.y + 10, 30, 30);
+            break;
+        case skins.RETRO:
+            switch (theme) {
+                case themes.LIGHT:
+                    fill(darkColor1);
+                    break;
+                case themes.DARK:
+                    fill(lightColor1);
+                    break;
+            }
+            rect(appPos.x, appPos.y, 20, 20);
+            break;
+        default:
+            fill(255, 0, 0);
+            ellipse(appPos.x + 10, appPos.y + 10, 20, 20);
+            break;
+    }
+    
+    //TAIL DRAWING
+    switch (skin) {
+        case skins.NORMAL:
+            fill(19, 140, 0);
+            for (var i = 0; i < tailPos.length(); i++) {
+                rect(tailPos.elements[i].x, tailPos.elements[i].y, 20, 20);
+            }
+            break;
+        case skins.RAINBOW:
+            colorMode(HSB);
+            for (var i = tailPos.length() - 1; i >= 0; i--) {
+                var hue = (tailPos.length() - i) * 255 / width * 20 / 2 % 255;
+                //println(hue);
+                fill(hue, 255, 255);
+                rect(tailPos.elements[i].x, tailPos.elements[i].y, 20, 20);
+            }
+            colorMode(RGB);
+            break;
+        case skins.WIREFRAME:
+            for (var i = 0; i < tailPos.length(); i++) {
+                if ((tailPos.elements[i].x % 20 === 0 &&
+                     tailPos.elements[i].y % 20 === 0)) {
+                    stroke(0, 255, 0);
+                    fill(0, 0, 0, 0);
+                    strokeWeight(2);
+                    rect(tailPos.elements[i].x, tailPos.elements[i].y, 20, 20);
+                }
+            }
+            noStroke();
+            break;
+        case skins.APPLE:
+            for (var i = 0; i < tailPos.length(); i++) {
+                if ((tailPos.elements[i].x % 20 === 0 &&
+                     tailPos.elements[i].y % 20 === 0)) {
+                stroke (255, 0, 0);
+                strokeWeight(20);
+                point(tailPos.elements[i].x + 10, tailPos.elements[i].y + 10);
+                noStroke();
+                }
+            }
+            break;
+        case skins.FLASHING:
+            for (var i = 0; i < tailPos.length(); i++) {
+                if ((timer % 100 > 50 && timer % 100 < 75) ||
+                     gameState === gameStates.GAME_OVER) {
+                    fill(19, 140, 0);
+                    rect(tailPos.elements[i].x, tailPos.elements[i].y, 20, 20);
+                }
+            }
+            break;
+        case skins.CAMO:
+            switch (theme) {
+                case themes.LIGHT:
+                    for (var i = 0; i < tailPos.length(); i++) {
+                        if (tailPos.elements[i].x % 20 === 0 && 
+                            tailPos.elements[i].y % 20 === 0) {
+                            if (tailPos.elements[i].x % 40 !== tailPos.elements[i].y % 40) {
+                                fill(lightColor2);
+                            } else {
+                                fill(lightColor1);
+                            }
+                            rect(tailPos.elements[i].x, tailPos.elements[i].y, 20, 20);
+                        }
+                    }
+                    break;
+                case themes.DARK:
+                    for (var i = 0; i < tailPos.length(); i++) {
+                        if (tailPos.elements[i].x % 20 === 0 && 
+                            tailPos.elements[i].y % 20 === 0) {
+                            if (tailPos.elements[i].x % 40 !== tailPos.elements[i].y % 40) {
+                                fill(darkColor2);
+                            } else {
+                                fill(darkColor1);
+                            }
+                            rect(tailPos.elements[i].x, tailPos.elements[i].y, 20, 20);
+                        }
+                    }
+                    break;
+            }
+            break;
+        case skins.AAAAA:
+            for (var i = 0; i < tailPos.length(); i++) {
+                if (tailPos.elements[i].x % 20 === 0 &&
+                    tailPos.elements[i].y % 20 === 0) {
+                    switch (theme) {
+                        case themes.LIGHT:
+                            fill(lightTextColor);
+                            break;
+                        case themes.DARK:
+                            fill(darkTextColor);
+                            break;
+                    }
+                    textAlign(LEFT, TOP);
+                    textSize(30);
+                    text("A", tailPos.elements[i].x, tailPos.elements[i].y - 10);
+                }
+            }
+            break;
+        case skins.BEEG:
+            fill(19, 140, 0);
+            for (var i = 0; i < tailPos.length(); i++) {
+                rect(tailPos.elements[i].x - 10, tailPos.elements[i].y - 10, 40, 40);
+            }
+            break;
+        case skins.RETRO:
+            switch (theme) {
+                case themes.LIGHT:
+                    fill(darkColor1);
+                    break;
+                case themes.DARK:
+                    fill(lightColor1);
+                    break;
+            }
+            for (var i = 0; i < tailPos.length(); i++) {
+                if ((tailPos.elements[i].x % 20 === 0 && tailPos.elements[i].y % 20 === 0) || i === 0) {
+                    rect(tailPos.elements[i].x, tailPos.elements[i].y, 20, 20);
+                }
+            }
+            break;
+    }
+    
+    //TONGUE DRAWING
+    fill(247, 57, 57);
+    if (timer % 100 > 50 && timer % 100 < 75 && skin !== skins.RETRO) {
+        switch (skin) {
+            case skins.BEEG:
+                switch (direction) {
+                    case directions.UP:
+                        beginShape();
+                            vertex(headPos.x + 8, headPos.y - 10);
+                            vertex(headPos.x + 8, headPos.y - 20);
+                            vertex(headPos.x + 10, headPos.y - 17);
+                            vertex(headPos.x + 12, headPos.y - 20);
+                            vertex(headPos.x + 12, headPos.y - 10);
+                        endShape(CLOSE);
+                        break;
+                    case directions.DOWN:
+                        beginShape();
+                            vertex(headPos.x + 8, headPos.y + 30);
+                            vertex(headPos.x + 8, headPos.y + 40);
+                            vertex(headPos.x + 10, headPos.y + 37);
+                            vertex(headPos.x + 12, headPos.y + 40);
+                            vertex(headPos.x + 12, headPos.y + 30);
+                        endShape(CLOSE);
+                        break;
+                    case directions.LEFT:
+                        beginShape();
+                            vertex(headPos.x - 10, headPos.y + 8);
+                            vertex(headPos.x - 20, headPos.y + 8);
+                            vertex(headPos.x - 17, headPos.y + 10);
+                            vertex(headPos.x - 20, headPos.y + 12);
+                            vertex(headPos.x - 10, headPos.y + 12);
+                        endShape(CLOSE);
+                        break;
+                    case directions.RIGHT:
+                        beginShape();
+                            vertex(headPos.x + 30, headPos.y + 8);
+                            vertex(headPos.x + 40, headPos.y + 8);
+                            vertex(headPos.x + 37, headPos.y + 10);
+                            vertex(headPos.x + 40, headPos.y + 12);
+                            vertex(headPos.x + 30, headPos.y + 12);
+                        endShape(CLOSE);
+                        break;
+                    default:
+                        beginShape();
+                            vertex(headPos.x + 30, headPos.y + 8);
+                            vertex(headPos.x + 40, headPos.y + 8);
+                            vertex(headPos.x + 37, headPos.y + 10);
+                            vertex(headPos.x + 40, headPos.y + 12);
+                            vertex(headPos.x + 30, headPos.y + 12);
+                        endShape(CLOSE);
+                        break;
+                }
+                break;
+            default:
+                switch (direction) {
+                    case directions.UP:
+                        beginShape();
+                            vertex(headPos.x + 8, headPos.y);
+                            vertex(headPos.x + 8, headPos.y - 10);
+                            vertex(headPos.x + 10, headPos.y - 7);
+                            vertex(headPos.x + 12, headPos.y - 10);
+                            vertex(headPos.x + 12, headPos.y);
+                        endShape(CLOSE);
+                        break;
+                    case directions.DOWN:
+                        beginShape();
+                            vertex(headPos.x + 8, headPos.y + 20);
+                            vertex(headPos.x + 8, headPos.y + 30);
+                            vertex(headPos.x + 10, headPos.y + 27);
+                            vertex(headPos.x + 12, headPos.y + 30);
+                            vertex(headPos.x + 12, headPos.y + 20);
+                        endShape(CLOSE);
+                        break;
+                    case directions.LEFT:
+                        beginShape();
+                            vertex(headPos.x, headPos.y + 8);
+                            vertex(headPos.x - 10, headPos.y + 8);
+                            vertex(headPos.x - 7, headPos.y + 10);
+                            vertex(headPos.x - 10, headPos.y + 12);
+                            vertex(headPos.x, headPos.y + 12);
+                        endShape(CLOSE);
+                        break;
+                    case directions.RIGHT:
+                        beginShape();
+                            vertex(headPos.x + 20, headPos.y + 8);
+                            vertex(headPos.x + 30, headPos.y + 8);
+                            vertex(headPos.x + 27, headPos.y + 10);
+                            vertex(headPos.x + 30, headPos.y + 12);
+                            vertex(headPos.x + 20, headPos.y + 12);
+                        endShape(CLOSE);
+                        break;
+                    default:
+                        beginShape();
+                            vertex(headPos.x + 20, headPos.y + 8);
+                            vertex(headPos.x + 30, headPos.y + 8);
+                            vertex(headPos.x + 27, headPos.y + 10);
+                            vertex(headPos.x + 30, headPos.y + 12);
+                            vertex(headPos.x + 20, headPos.y + 12);
+                        endShape(CLOSE);
+                }
+                break;
+        }
+    }
+    
+    //HEAD DRAWING
+    fill(19, 140, 0);
+    switch (skin) {
+        case skins.NORMAL:
+            rect(headPos.x, headPos.y, 20, 20);
+            break;
+        case skins.RAINBOW:
+            colorMode(HSB);
+            fill(0, 255, 255); //H = timer % 128 * 2
+            colorMode(RGB);
+            rect(headPos.x, headPos.y, 20, 20);
+            break;
+        case skins.WIREFRAME:
+            stroke(0, 255, 0);
+            strokeWeight(2);
+            fill(0, 0, 0, 0);
+            rect(headPos.x, headPos.y, 20, 20);
+            noStroke();
+            break;
+        case skins.APPLE:
+            stroke(255, 0, 0);
+            strokeWeight(20);
+            point(headPos.x + 10, headPos.y + 10);
+            noStroke();
+            break;
+        case skins.FLASHING:
+            if ((timer % 100 > 50 && timer % 100 < 75) || gameState === gameStates.GAME_OVER) {
+                rect(headPos.x, headPos.y, 20, 20);
+            }
+            break;
+        case skins.CAMO:
+            switch (theme) {
+                case themes.LIGHT:
+                    if (headPos.x % 40 === 0 && headPos.y % 40 === 20) {
+                        fill(lightColor2);
+                    } else {
+                        fill(lightColor1);
+                    }
+                    rect(headPos.x, headPos.y, 20, 20);
+                    break;
+                case themes.DARK:
+                    if (headPos.x % 40 === 0 && headPos.y % 40 === 20) {
+                        fill(darkColor2);
+                    } else {
+                        fill(darkColor1);
+                    }
+                    rect(headPos.x, headPos.y, 20, 20);
+                    break;
+            }
+            break;
+        case skins.AAAAA:
+            switch (theme) {
+                case themes.LIGHT:
+                    fill(lightTextColor);
+                    break;
+                case themes.DARK:
+                    fill(darkTextColor);
+                    break;
+            }
+            textAlign(LEFT, TOP);
+            text("A", headPos.x, headPos.y - 10);
+            break;
+        case skins.BEEG:
+            rect(headPos.x - 10, headPos.y - 10, 40, 40);
+            break;
+        case skins.RETRO:
+            switch (theme) {
+                case themes.LIGHT:
+                    fill(darkColor1);
+                    break;
+                case themes.DARK:
+                    fill(lightColor1);
+                    break;
+            }
+            rect(headPos.x, headPos.y, 20, 20);
+            break;
+    }
+    
+    //EYES DRAWING
+    if (skin !== skins.RETRO) {
+        fill(0);
+        switch (skin) {
+            case skins.BEEG:
+                switch (direction) {
+                    case directions.UP:
+                        ellipse(headPos.x + 5, headPos.y - 8, d, d);
+                        ellipse(headPos.x + 15, headPos.y - 8, d, d);
+                        break;
+                    case directions.DOWN:
+                        ellipse(headPos.x + 5, headPos.y + 28, d, d);
+                        ellipse(headPos.x + 15, headPos.y + 28, d, d);
+                        break;
+                    case directions.LEFT:
+                        ellipse(headPos.x - 8, headPos.y + 5, d, d);
+                        ellipse(headPos.x - 8, headPos.y + 15, d, d);
+                        break;
+                    case directions.RIGHT:
+                        ellipse(headPos.x + 28, headPos.y + 5, d, d);
+                        ellipse(headPos.x + 28, headPos.y + 15, d, d);
+                        break;
+                    default:
+                        ellipse(headPos.x + 28, headPos.y + 5, d, d);
+                        ellipse(headPos.x + 28, headPos.y + 15, d, d);
+                }
+                break;
+            default:
+                switch (direction) {
+                    case directions.UP:
+                        ellipse(headPos.x + 5, headPos.y + 2, d, d);
+                        ellipse(headPos.x + 15, headPos.y + 2, d, d);
+                        break;
+                    case directions.DOWN:
+                        ellipse(headPos.x + 5, headPos.y + 18, d, d);
+                        ellipse(headPos.x + 15, headPos.y + 18, d, d);
+                        break;
+                    case directions.LEFT:
+                        ellipse(headPos.x + 2, headPos.y + 5, d, d);
+                        ellipse(headPos.x + 2, headPos.y + 15, d, d);
+                        break;
+                    case directions.RIGHT:
+                        ellipse(headPos.x + 18, headPos.y + 5, d, d);
+                        ellipse(headPos.x + 18, headPos.y + 15, d, d);
+                        break;
+                    default:
+                        ellipse(headPos.x + 18, headPos.y + 5, d, d);
+                        ellipse(headPos.x + 18, headPos.y + 15, d, d);
+                }
+                break;
+        }
+    }
+    }
+    
+    //END SHAPE DRAWING CODE ------------------------------------------------------------
+    //START UI CODE ---------------------------------------------------------------------
+    
+    {
+    switch (theme) {
+        case themes.LIGHT:
+            fill(lightTextColor);
+            break;
+        case themes.DARK:
+            fill(darkTextColor);
+            break;
+    }
+    textFont(createFont("serif"));
+    textAlign(CENTER);
+    textSize(60);
+    text(message1, width / 2, 100); //says "SNAKE" or "Game Over"
+    
+    switch (gameState) {
+        case gameStates.MENU:
+            {
+            textSize(20);
+            if (skin === skins.RETRO && theme === themes.LIGHT) {
+                message2 = "This skin is best used with dark theme!";
+            }
+            text(message2, width / 2, 127);
+            stroke(0);
+            strokeWeight(4);
+            fill(255);
+            if (choosingDifficulty) {
+                if (mouseInRect(width / 2 + 75, 150, width / 2 + 125, 200)) {
+                    fill(255, 0, 0);
+                    rect(width / 2 - 75, 150, 200, 50, 10);
+                    textAlign(CENTER, CENTER);
+                    fill(0);
+                    textSize(15);
+                    text("Expert", width / 2 + 100, 175);
+                }
+                if (mouseInRect(width / 2 - 125, 150, width / 2 - 75, 200)) {
+                    fill(0, 255, 255);
+                    rect(width / 2 - 125, 150, 200, 50, 10);
+                    textAlign(CENTER, CENTER);
+                    fill(0);
+                    textSize(25);
+                    text("???", width / 2 - 100, 175);
+                }
+            }
+            fill(255);
+            rect(menuButton1.x, menuButton1.y, 150, 50, 10);
+            if (choosingDifficulty) {
+                line(width / 2 - 25, 151, width / 2 - 25, 199);
+                line(width / 2 + 25, 151, width / 2 + 25, 199);
+            }
+            rect(menuButton2.x, menuButton2.y, 150, 50, 10);
+            rect(width - 100, height - 100, 98, 98, 10);
+            rectMode(CENTER);
+            if (sound === sounds.ON) {
+                rect(width - 71, height - 37, 40, 40, 7);
+            } else {
+                rect(width - 31, height - 37, 40, 40, 7);
+            }
+            rectMode(CORNER);
+            rect(2, height - 100, 98, 98, 10);
+            rectMode(CENTER);
+            noStroke();
+            fill(245);
+            rect(31, height - 37, 40, 40, 7);
+            fill(48);
+            rect(71, height - 37, 40, 40, 7);
+            stroke(0);
+            strokeWeight(4);
+            fill(0, 0, 0, 0);
+            switch (theme) {
+                case themes.LIGHT:
+                    rect(31, height - 37, 40, 40, 7);
+                    break;
+                case themes.DARK:
+                    rect(71, height - 37, 40, 40, 7);
+                    break;
+            }
+            fill(0);
+            textAlign(CENTER, CENTER);
+            if (!choosingDifficulty) {
+                textSize(30);
+                text("Play", width / 2, menuButton1.y + 25);
+                textSize(25);
+                text("How to play", width / 2, menuButton2.y + 25);
+            } else {
+                textSize(20);
+                text("Easy", width / 2 - 50, menuButton1.y + 25);
+                text("Med.", width / 2, menuButton1.y + 25);
+                text("Hard", width / 2 + 50, menuButton1.y + 25);
+                textSize(25);
+                text("Back", width / 2, menuButton2.y + 25);
+            }
+            textSize(25);
+            text("Sound", width - 51, height - 80);
+            textSize(20);
+            text("On", width - 71, height - 37);
+            textSize(20);
+            text("Off", width - 31, height - 37);
+            textSize(25);
+            text("Theme", 51, height - 80);
+            break;
+            }
+        case gameStates.PLAYING:
+            {
+            switch (theme) {
+                case themes.LIGHT:
+                    fill(lightTextColor);
+                    break;
+                case themes.DARK:
+                    fill(darkTextColor);
+                    break;
+            }
+            textSize(20);
+            textAlign(LEFT, TOP);
+            text("Difficulty: " + difficulty, 1, 0);
+            text("Score: " + score, 1, 22);
+            
+            textFont(createFont("serif"));
+            textAlign(LEFT);
+            break;
+            }
+        case gameStates.GAME_OVER:
+            {
+            stroke(0);
+            strokeWeight(4);
+            fill(255);
+            rect(gameOverButton1.x, gameOverButton1.y, 150, 50, 10);
+            rect(gameOverButton2.x, gameOverButton2.y, 150, 50, 10);
+            switch (theme) {
+                case themes.LIGHT:
+                    fill(lightTextColor);
+                    break;
+                case themes.DARK:
+                    fill(darkTextColor);
+                    break;
+            }
+            textAlign(CENTER);
+            textSize(35);
+            text("Final Score: " + score, width / 2, 150);
+            fill(0);
+            textAlign(CENTER, CENTER);
+            textSize(30);
+            text("Restart", width / 2, gameOverButton1.y + 19);
+            textSize(15);
+            text("[space]", width / 2, gameOverButton1.y + 39);
+            textSize(25);
+            text("Main Menu", width / 2, gameOverButton2.y + 25);
+            break;
+            }
+        case gameStates.HOW_TO_PLAY:
+            {
+            switch (theme) {
+                case themes.LIGHT:
+                    background(lightColor1);
+                    break;
+                case themes.DARK:
+                    background(darkColor1);
+                    break;
+            }
+            stroke(0);
+            strokeWeight(2);
+            fill(255);
+            rect(1, 1, 101, 41, 10); //back button
+            fill(0);
+            textAlign(CENTER, CENTER);
+            textSize(20);
+            text("Back", 51, 21);
+            switch (theme) {
+                case themes.LIGHT:
+                    fill(lightTextColor);
+                    break;
+                case themes.DARK:
+                    fill(darkTextColor);
+                    break;
+            }
+            textAlign(CENTER);
+            textSize(35);
+            text("How to play Snake", width / 2, 100);
+            textSize(20);
+            text("Using arrow keys (or WASD), control the snake to eat the apples that appear. As you eat more apples, the snake's tail gets longer. You will lose the game if you let the snake run into its own tail or the edge of the screen.", 5, 120, width - 10, 999);
+            rectMode(CENTER); //these rectangles and triangles draw the arrow keys
+            fill(255);
+            rect(width / 2, 275, 50, 50, 15); //arrow keys
+            rect(width / 2, 326, 50, 50, 15);
+            rect(width / 2 - 51, 326, 50, 50, 15);
+            rect(width / 2 + 51, 326, 50, 50, 15);
+            rectMode(CORNER);
+            noStroke();
+            fill(0);
+            triangle(width / 2, 265, width / 2 - 10, 285, width / 2 + 10, 285); //up
+            triangle(width / 2, 336, width / 2 - 10, 316, width / 2 + 10, 316); //down
+            triangle(width / 2 - 61, 326, width / 2 - 41, 336, width / 2 - 41, 316); //left
+            triangle(width / 2 + 61, 326, width / 2 + 41, 336, width / 2 + 41, 316); //right
+            break;
+            }
+    }
+    
+    if (difficulty === difficulties.EXPERTER && 
+        (gameState === gameStates.PLAYING || 
+        gameState === gameStates.GAME_OVER)) {
+        switch (theme) {
+            case themes.LIGHT:
+                fill(lightTextColor);
+                break;
+            case themes.DARK:
+                fill(darkTextColor);
+                break;
+        }
+        textAlign(RIGHT, TOP);
+        textFont(createFont("monospace"), 15);
+        if (direction === directions.NULL) {
+            text("0", width - 1, 0);
+        } else {
+            text(Math.floor(elapsed / 1000) + "." + elapsed % 1000, width - 1, 0);
+        }
+        
+        if (inputTime <= 100) {
+            text("U-turn: " + inputTime + " ms", width - 1, 15);
+        } else {
+            text("U-turn: >100 ms", width - 1, 15);
+        }
+        
+        var eft = 1000 / (2 * (sfps + fpsinc * score));
+        text("Expected frame time: " + round(eft) + " ms", width - 1, 30);
+        
+        if (frameTime > eft + 1) {
+            fill(255, 0, 0);
+        } else if (frameTime < eft) {
+            fill(19, 140, 0);
+        }
+        text("Frame time: " + frameTime + " ms", width - 1, 45);
+        switch (theme) {
+            case themes.LIGHT:
+                fill(lightTextColor);
+                break;
+            case themes.DARK:
+                fill(darkTextColor);
+                break;
+        }
+        text("", width - 1, 60);
+    }
+    }
+    
+};
+
+keyPressed = function() {
+    switch (gameState) {
+        case gameStates.PLAYING:
+            if (!paused) {
+                switch(keyCode) {
+                    case 38: //UP
+                    case 87: //W
+                        moveQueue.push(directions.UP);
+                        inputTime = millis() - lastInput;
+                        lastInput += inputTime;
+                        break;
+                    case 40: //DOWN
+                    case 83: //S
+                        moveQueue.push(directions.DOWN);
+                        inputTime = millis() - lastInput;
+                        lastInput += inputTime;
+                        break;
+                    case 37: //LEFT
+                    case 65: //A
+                        moveQueue.push(directions.LEFT);
+                        inputTime = millis() - lastInput;
+                        lastInput += inputTime;
+                        break;
+                    case 39: //RIGHT
+                    case 68: //D
+                        moveQueue.push(directions.RIGHT);
+                        inputTime = millis() - lastInput;
+                        lastInput += inputTime;
+                        break;
+                }
+            }
+            switch(keyCode) {
+                case 80: //P
+                    if (paused) {
+                        paused = false;
+                    } else {
+                        paused = true;
+                    }
+            }
+            break;
+        case gameStates.GAME_OVER:
+            switch(keyCode) {
+                case 32:
+                    restartGame();
+            }
+            break;
+    }
+};
+
+mouseClicked = function() {
+    switch (gameState) {
+        case gameStates.MENU:
+            if (mouseInRect(menuButton1.x, menuButton1.y, menuButton1.x + 150, menuButton1.y + 50)) { //menu button 1
+                if (!choosingDifficulty) {
+                    choosingDifficulty = true;
+                } else {
+                    if (mouseX < menuButton1.x + 50) { //easy
+                        difficulty = difficulties.EASY;
+                    } else if (mouseX > menuButton1.x + 50 && mouseX < menuButton1.x + 100) { //medium
+                        difficulty = difficulties.MEDIUM;
+                    } else if (mouseX > menuButton1.x + 100) { //hard
+                        difficulty = difficulties.HARD;
+                    }
+                    choosingDifficulty = false;
+                    restartGame();
+                }
+            } else if (mouseInRect(menuButton2.x, menuButton2.y, menuButton2.x + 150, menuButton2.y + 50)) { //menu button 2
+                if (choosingDifficulty) {
+                    choosingDifficulty = false;
+                } else {
+                    gameState = gameStates.HOW_TO_PLAY;
+                }
+            } else if (mouseInRect(width - 91, height - 57, width - 51, height - 17)) { //sound on
+                sound = sounds.ON;
+            } else if (mouseInRect(width - 51, height - 57, width - 11, height - 17)) { //sound off
+                sound = sounds.OFF;
+            } else if (mouseInRect(11, height - 57, 51, height - 17)) {
+                theme = themes.LIGHT;
+            } else if (mouseInRect(51, height - 57, 91, height - 17)) {
+                theme = themes.DARK;
+            } else if (choosingDifficulty && mouseInRect(menuButton1.x + 150, menuButton1.y, menuButton1.x + 200, menuButton1.y + 50)) { //expert
+                difficulty = difficulties.EXPERT;
+                choosingDifficulty = false;
+                restartGame();
+            } else if (choosingDifficulty && mouseInRect(menuButton1.x - 50, menuButton1.y, menuButton1.x, menuButton1.y + 50)) { //???
+                difficulty = difficulties.EXPERTER;
+                choosingDifficulty = false;
+                restartGame();
+            } else if (mouseInRect(headPos.x, headPos.y, headPos.x + 20, headPos.y + 20)) {
+                cycleSkin();
+            } else if (skin === skins.BEEG && mouseInRect(headPos.x - 10, headPos.y - 10, headPos.x + 30, headPos.y + 30)) {
+                cycleSkin();
+            }
+            break;
+        case gameStates.PLAYING:
+            break;
+        case gameStates.GAME_OVER:
+            if (mouseInRect(gameOverButton1.x, gameOverButton1.y, gameOverButton1.x + 150, gameOverButton1.y + 50)) { //game over button 1
+                restartGame();
+            } else if (mouseInRect(gameOverButton2.x, gameOverButton2.y, gameOverButton2.x + 150, gameOverButton2.y + 50)) { //game over button 2
+                goToMainMenu();
+            }
+            break;
+        case gameStates.HOW_TO_PLAY:
+            if (mouseInRect(1, 1, 101, 41)) { //back to menu
+                goToMainMenu();
+            }
+            break;
+    }
+};
